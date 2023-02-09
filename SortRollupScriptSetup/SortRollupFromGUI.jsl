@@ -12,7 +12,7 @@ Include( Get Environment Variable( "UBER_JMP_DIR" ) || "\Include\UberJMP.jsl" );
 
 
 
-outputFolder="C:\Users\cflanaga\Intel Corporation\Ireland_PCH - Documents\xx_MTL\Example_Data_Rollup\";
+outputFolder="I:\program\1001\eng\hdmtprogs\mts_sds\SCHEDULER\configs";
 
 outputTablePerFab = {};
  outputdir=get default directory();
@@ -37,7 +37,7 @@ outputTablePerFab = {};
   	  , V List Box(H List Box( Text Box( "Within last n days:",<<Set Width( 200 ), <<set nLines( 1 ) ))  , 
 		  H List Box(prefetchbox = Text Edit Box( "1",   <<Set Width( 200 ), <<set nLines( 1 ) ) ),
 		  H List Box( Text Box( "Product Code(s):",<<Set Width( 200 ), <<set nLines( 1 ) ))  , 
-		    H List Box(productbox = Text Edit Box( "8PRJCVA",   <<Set Width( 200 ), <<set nLines( 8 ) ) ))),
+		    H List Box(productbox = Text Edit Box( "8PNRCVB",   <<Set Width( 200 ), <<set nLines( 8 ) ) ))),
 
 
 
