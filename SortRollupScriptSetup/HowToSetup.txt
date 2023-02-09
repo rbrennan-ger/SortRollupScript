@@ -1,0 +1,13 @@
+To create reports from either scheduled or GUI script:
+1. Edit outputFolder at the start of SortRollupScheduled.jsl to point to the folder you want the scheduled reports to output to (make sure this path exists)
+
+To schedule runs:
+1. Copy this folder into an offline box
+2. Edit line 7 of runJSL.bat to point to the folder path where you will store your scheduled configs (make sure this path exists)
+3. Schedule a task in Task Scheduler on an offline box
+
+Task scheduler settings:
+General: Run only when user is logged on, run with highest privileges
+Triggers: A time
+Actions: Start a program, Program/script: "C:\Users\cflanaga\Documents\SortRollup\SDS\runJSL.bat" (your path) with no arguments 
+Conditions: Wake the computer to run this task

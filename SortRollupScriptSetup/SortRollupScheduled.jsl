@@ -1,0 +1,1755 @@
+//!
+Include( Get Environment Variable( "UBER_JMP_DIR" ) || "\Include\UberJMP.jsl" );
+
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+////////// ^^^^^^^^ RUN SCRIPT TO OPEN  GUI /////////////////////////
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+
+
+outputFolder="C:\Users\cflanaga\Intel Corporation\Ireland_PCH - Documents\xx_MTL\Example_Data_Rollup\";
+
+outputTablePerFab = {};
+ outputdir=get default directory();
+	
+	defaultdir=Convert File Path( "" );
+	show(defaultdir);
+ ww = New Window( "Sort Rollup", 
+ Border Box(Left(10), Right(40), Top(20), Bottom(40), Sides(40),
+	//<<Modal,
+	<<return result,
+	V List Box(
+		
+	
+		Spacer Box( Size( 20, 10 ) ), 
+		 H List Box( V List Box( H List Box( Text Box( "Lots:" )), H List Box(lotbox = Text Edit Box( "
+", 
+  <<Set Width( 200 ), <<set nLines( 10 ) ) )),
+  
+		Spacer Box( Size( 20, 10 ) ), 
+  
+  
+  	  , V List Box(H List Box( Text Box( "Within last n days:",<<Set Width( 200 ), <<set nLines( 1 ) ))  , 
+		  H List Box(prefetchbox = Text Edit Box( "1",   <<Set Width( 200 ), <<set nLines( 1 ) ) ),
+		  H List Box( Text Box( "Product Code(s):",<<Set Width( 200 ), <<set nLines( 1 ) ))  , 
+		    H List Box(productbox = Text Edit Box( "8PRJCVA",   <<Set Width( 200 ), <<set nLines( 8 ) ) ))),
+
+
+
+		  H List Box( Text Box( "For instance test time, pull n die per wafer" )), H List Box(samplebox = Text Edit Box( "20", 
+  <<Set Width( 200 ), <<set nLines( 1 ) ) ),
+		  H List Box( Text Box( "Operation" )), H List Box(operationbox = Text Edit Box( "132%", 
+  <<Set Width( 200 ), <<set nLines( 1 ) ) ),
+   flowbox = Radio Box(
+			{"SDS", "SDT"}),
+		  H List Box( Text Box( "Fab" )),
+		 
+		  cb = Check Box(
+		{"F24",  "D1D", "F32","F28"},
+		
+	),
+		
+		  H List Box( Text Box( "Test programs" )),
+		   H List Box(tpbox = Text Edit Box( "",   <<Set Width( 200 ), <<set nLines( 3 ) ) ),
+		   Text Box( "Compare by" ),
+		   		rb = Radio Box(
+			{"PROGRAM_NAME", "LOT", "SSEQ","DEVREVSTEP"},
+			Show( rb << Get() ), 
+
+
+		), 
+  	  , V List Box(H List Box( Text Box( "Functional Test Wildcard:",<<Set Width( 200 ), <<set nLines( 1 ) )))  , 
+		  H List Box(funcbox = Text Edit Box( "PTPI_HVQK_STRESS_SXX%",   <<Set Width( 200 ), <<set nLines( 1 ) ) ),
+  	  , V List Box(H List Box( Text Box( "Report Name:",<<Set Width( 200 ), <<set nLines( 1 ) )))  , 
+		  H List Box(reportnamebox = Text Edit Box( "Untitled"||Char(Random Integer(1,9999));,   <<Set Width( 200 ), <<set nLines( 1 ) ) ),
+			LatestSort =Check Box({"Latest Sort Only"},1),
+		H List Box( OverallTestTime_btn = Button Box( "Overall Test Time", ) ,
+		H List Box( Binning_btn = Button Box( "Fbin Pareto", ) ), ,
+		H List Box( IBinning_btn = Button Box( "Ibin Pareto", ) ), ,
+		H List Box( ITT_btn = Button Box( "GDTT By Instance", ) ),
+		H List Box( bITT_btn = Button Box( "BDTT By Instance", ) )),
+		H List Box( HardwareBinning_btn = Button Box( "Binning by Hardware", )) ,
+		H List Box( GFA_btn = Button Box( "Binning GFAs", ) ,
+		H List Box( n9898_btn = Button Box( "98s and 99s", )) ,
+		H List Box( ultrabinner_btn = Button Box( "Ultrabinning", )) ,
+		H List Box( functional_btn = Button Box( "B1 Functional Fails", )) ,
+		H List Box( switches_btn = Button Box( "Bin Switches", ),
+		H List Box( prefetch_btn = Button Box( "Lot Wafer List", ) ),
+		H List Box( bigreport_btn = Button Box( "Big Report", ) ))),
+		
+		Spacer Box(Size(15,15)),
+	
+)));
+//cb<<set(1);
+//cb<<set(2);
+//flowbox<<set(1);
+bctxt=load text file ( outputdir||"\Latest.txt");
+cr = "
+";
+lines=words(bctxt,"\!n");
+For( i = 1, i<= N Items(lines), i += 1,
+
+if(words(lines[i],",")[1]=="Name",	reportnamebox<<set text(substitute(words(lines[i],",")[2],cr,"")));
+if(words(lines[i],",")[1]=="Days",	prefetchbox<<Set Text(words(lines[i],",")[2]));
+if(words(lines[i],",")[1]=="Temp",	if(contains(words(lines[i],",")[2],"SDT"),flowbox<<set(2),flowbox<<set(1)));
+if(words(lines[i],",")[1]=="Fabs", show(words(lines[i],",")[2]);	if(contains(words(lines[i],",")[2],"D1D"),cb<<set(2));	if(contains(words(lines[i],",")[2],"F24"),cb<<set(1));	if(contains(words(lines[i],",")[2],"F32"),cb<<set(3));	if(contains(words(lines[i],",")[2],"F28"),cb<<set(4));	);
+if(words(lines[i],",")[1]=="Products",	productbox<<Set Text(substitute((words(lines[i],",")[2])," ", "\!n")));
+if(words(lines[i],",")[1]=="Lots",	lotbox<<Set Text(substitute((words(lines[i],",")[2])," ", "\!n")));
+);	
+
+
+reportname=reportnamebox<<get text();
+reportname = substitute(reportname, "\!n\!r", "");
+reportname=substr(reportname,1,length(reportname)-1);
+show(reportname);
+listfabs={};
+ ultrabinner_btn <<Set Script(ultrabinner_fn(0));
+ functional_btn <<Set Script(functional_fn(0));
+ OverallTestTime_btn << Set Script( OverallTestTime(0));
+ Binning_btn << Set Script( Binning1());
+ IBinning_btn << Set Script( IBinning1(0));
+ ITT_btn << Set Script( InstanceTestTime("G",0));
+ bITT_btn << Set Script( InstanceTestTime("B",0));
+ n9898_btn << Set Script( n9898(0));
+switches_btn << Set Script( switches(0));
+prefetch_btn << Set Script( prefetch(0));
+HardwareBinning_btn << Set Script( hardwarebinning(0));
+GFA_btn << Set Script( gfabinning(0));
+
+
+
+bigreport_btn << Set Script( bigreport());
+
+
+
+
+/////////// PREFETCH
+
+prefetch = Function({report=1},
+ReadGui();
+print("PREFETCH");
+
+print("checkpoint 2");
+outputTablePerFab={};
+sql="select 
+	  ts.lot
+	 ,TS.TESTING_SESSION_SEQUENCE as sseq
+	 ,ts.wafer_id
+	,ts.test_end_date_time
+	  ,ts.program_name
+	,ts.TEMPERATURE
+	 ,ts.tester_id
+	 ,ts.operation
+	 ,ts.devrevstep
+	 ,ts.flow_step
+	 ,ts.DEVICE_ITEMS_TESTED
+	,ts.TOTAL_GOOD
+				from
+		
+		 a_testing_session ts,
+		 
+		(SELECT  A_PG$INTEL_WW.CALCULATE_WW(SYSDATE) CURRENTWW	--current date
+         FROM A_SEQ_1_TO_9
+         WHERE SEQ=1)
+
+
+		WHERE 1=1
+		"||latestsortSQL||"
+				"||lotSQL||"
+		"||tpSQL||"
+"||flowsql||"
+		and ts.operation like '"||u_operation||"'	
+		and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 	
+		and ts.devrevstep in  ("||ProdList||")";
+		
+		
+		show(sql);
+For( i = 1, i <= Nitems(listfabs), i++,			
+show(i);	
+	outputTablePerFab[i] = GetTableUsingUber(listfabs[i]||"_PROD_XEUS",
+
+	sql,  60000);
+	//
+			
+);
+		Final_Table=outputTablePerFab[1];
+
+For( i = 2, i <= Nitems(outputTablePerFab), i++,
+	Final_Table << concatenate(outputTablePerFab[i], append to first table(1));
+	try(close(outputTablePerFab[i], nosave));
+
+	);
+	
+	additionalcol="";
+	if(rb<<get selected =="PROGRAM_NAME", additionalcol="DEVREVSTEP", additionalcol="PROGRAM_NAME");
+	materialsummary=	Final_Table << Summary(
+	
+	
+	Sum( :TOTAL_GOOD ),
+	Group(Column(rb<<get selected ),Column(additionalcol)),
+	Freq( "None" ),
+	Weight( "None" )
+);
+
+    :N Rows << set name( "Num Wafers");
+		if(report==1, 
+//savepath=outputdir||"/full_wafer_list.csv";
+	//outputTablePerFab[1] << save( savepath );
+		savepath=outputdir||"/material_summary.csv";
+	materialsummary<< save( savepath );
+		
+	);
+		
+			
+	);
+	
+
+
+
+
+
+/////////// OVERALL TEST TIME
+
+ OverallTestTime = Function({report=0},
+
+print("OVERALL TEST TIME");
+
+
+ReadGUI();
+PullDieData();
+
+	
+	show(rb<<get selected);
+	
+	o_t_1=Final_Table<< Summary(
+	Group( :GOODBAD_FLAG, Column(rb<<get selected)  ),
+	Mean( :TEST_TIME ),
+	Freq( "None" ),
+	Weight( "None" )
+);
+		/*outputTablePerFab[1]<<Distribution(Stack( 1 ),
+	Continuous Distribution(
+		Column( :TEST_TIME ),
+		Horizontal Layout( 1 ),
+		Vertical( 0 ),
+		Outlier Box Plot( 0 ),
+		Normal Quantile Plot( 1 )
+	),By( :GOODBAD_FLAG,  Column(rb<<get selected) ));
+	*/
+	
+	otgraph=Final_Table<<Variability Chart(
+	Y( :TEST_TIME ),
+	X( :GOODBAD_FLAG, :IB ),
+	Std Dev Chart( 0 ),
+	Points Jittered( 1 ),	
+	Variability Summary Report( 1 ),
+	By( rb<<get selected )
+);
+
+	
+	o_t_2=o_t_1<<
+Split(
+	Split By( :GOODBAD_FLAG ),
+	Split( :Name( "Mean(TEST_TIME)" ) ),
+	Group(  Column(rb<<get selected)),
+
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+try(
+o_t_2:G << Format( "Fixed Dec", 12, 2 );
+o_t_2:B << Format( "Fixed Dec", 12, 2 );
+    :G << set name( "GDTT");
+    :B << set name( "BDTT"));
+		
+		if(report==1, 
+savepath=outputdir||"/overall_test_time.csv";
+
+o_t_2 << save( savepath );
+
+savepath=outputdir||"/die_level_data.jmp";
+Final_Table<< save( savepath );
+otgraph<< Save Picture( outputdir||"/overalltesttime.jpg", JPEG );
+
+distScript =otgraph<< Get Script;
+Save Text File(
+  outputdir||"/overall_test_time.jrp",
+  "//!
+    Open( \!"die_level_data.jmp\!" );"
+    ||
+  Char( Name Expr( distScript ) )
+))
+;
+
+close(o_t_1,nosave);
+	);
+	
+	
+	
+
+
+
+
+	
+	
+/////////// BINNING SUMMARY
+
+Binning1 = Function({report=0},
+
+show("BINNINGo");
+show(report);
+ReadGUI();
+PullDieData();
+
+
+		
+		b1=Final_Table << Summary(
+	Group( :FB, Column(rb<<get selected)),
+	Freq( "None" ),
+	Weight( "None" ),	
+	Link to original data table( 0 )
+);
+
+	b2=Final_Table << Summary(
+	Group( Column(rb<<get selected)),
+	Freq( "None" ),
+	Weight( "None" ),	
+	Link to original data table( 0 )
+);
+
+
+b3=b1 <<
+Join(
+	With( b2),
+	Select( :FB, Column(rb<<get selected), :N Rows ),
+	SelectWith( :N Rows ),
+	By Matching Columns(Column(rb<<get selected)= Column(rb<<get selected) ),
+	Drop multiples( 0, 0 ),
+	Include Nonmatches( 1, 1 ),
+	Preserve main table order( 1 )
+);
+
+b3<< New Column( "Percent", Numeric, Formula(	(( Column(3)[] * 100) /Column(4)[] ) ));
+	
+b3:Percent << Format( "Fixed Dec", 12, 2 );
+:Percent << Delete Formula;
+	 b4=b3<< Split(
+	Split By(Column(rb<<get selected)),
+	Split(  :Percent ),
+	Group( :FB ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+	
+		nc = b4 << get column names( Numeric );
+		For( i = 1, i <= N Items( nc ), i++,
+			Column( nc[i] )[b4 << get rows where( Is Missing( As Column( nc[i] ) ) )] = 0);
+			
+			numcols=ncols(b4);
+b4<< New Column( "Delta", formula(Column(numcols)[] -Column(numcols-1)[]) );
+b4:Delta << Format( "Fixed Dec", 12, 2 );
+
+//Yield by Wafer
+YieldByWafer_1=Final_Table<< Summary(
+	Group(
+		:LOT,
+		:SSEQ,
+		:WAFER_ID,
+		:DEVREVSTEP,
+		:TESTER_ID,
+		:FB,
+		:PROGRAM_NAME,
+		:OPERATION,
+		:TEST_END_DATE_TIME,
+		:TEMPERATURE,
+		:DEVICE_ITEMS_TESTED
+	),
+	Freq( "None" ),
+	Weight( "None" ),
+	Link to Original Data Table(0)
+);
+
+YieldByWafer_2=YieldByWafer_1<< Split(
+	Split By( :FB ),
+	Split( :N Rows ),
+	Group(
+		:LOT,
+		:SSEQ,
+		:WAFER_ID,
+		:DEVREVSTEP,
+		:TESTER_ID,
+		:PROGRAM_NAME,
+		:OPERATION,
+		:TEST_END_DATE_TIME,
+		:TEMPERATURE,
+		:DEVICE_ITEMS_TESTED
+	),
+	Sort by Column Property
+);
+
+		nc8 = 
+YieldByWafer_2<< get column names( Numeric );
+		For( i = 1, i <= N Items( nc8 ), i++,
+			Column( nc8[i] )[YieldByWafer_2 << get rows where( Is Missing( As Column( nc8[i] ) ) )] = 0
+		);
+
+if(report==1, 
+show("PRINTING FBIN DATA");
+savepath=outputdir||"/fbin_pareto.csv";
+b4 << save( savepath );
+
+YieldByWafer_2<<save(outputdir||"/full_wafer_list.csv")
+
+);
+
+close(b1,nosave);
+close(b2,nosave);
+close(b3,nosave);
+
+	
+);
+
+
+
+	
+	
+/////////// IBINNING SUMMARY
+
+show("IBINNING");
+IBinning1 = Function({report=0},
+
+
+ReadGUI();
+PullDieData();
+
+
+		
+		b1=outputTablePerFab[1] << Summary(
+	Group( :IB, Column(rb<<get selected)),
+	Freq( "None" ),
+	Weight( "None" ),	
+	Link to original data table( 0 )
+);
+
+	b2=outputTablePerFab[1] << Summary(
+	Group( Column(rb<<get selected)),
+	Freq( "None" ),
+	Weight( "None" ),	
+	Link to original data table( 0 )
+);
+
+
+b3=b1 <<
+Join(
+	With( b2),
+	Select( :IB, Column(rb<<get selected), :N Rows ),
+	SelectWith( :N Rows ),
+	By Matching Columns(Column(rb<<get selected)= Column(rb<<get selected) ),
+	Drop multiples( 0, 0 ),
+	Include Nonmatches( 1, 1 ),
+	Preserve main table order( 1 )
+);
+
+b3<< New Column( "Percent", Numeric, Formula(	(( Column(3)[] * 100) /Column(4)[] ) ));
+	
+b3:Percent << Format( "Fixed Dec", 12, 2 );
+:Percent << Delete Formula;
+	 b4=b3<< Split(
+	Split By(Column(rb<<get selected)),
+	Split(  :Percent ),
+	Group( :IB ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+	
+		nc = b4 << get column names( Numeric );
+		For( i = 1, i <= N Items( nc ), i++,
+			Column( nc[i] )[b4 << get rows where( Is Missing( As Column( nc[i] ) ) )] = 0);
+						numcols=ncols(b4);
+b4<< New Column( "Delta", formula(Column(numcols)[] -Column(numcols-1)[]) );
+b4:Delta << Format( "Fixed Dec", 12, 2 );
+b5=outputTablePerFab[1] << Summary(
+	Group(
+		:LOT,
+		:SSEQ,
+		:WAFER_ID,
+		:IB,
+		:DEVREVSTEP,
+		:PROGRAM_NAME,
+		:SORT_PARTIALWAFER_ID
+	),
+	Freq( "None" ),
+	Weight( "None" )
+);
+
+
+b4 << Select Where( :IB<7);
+
+try(
+b6=b4 << Subset( Output Table( "Yield Summary" ), Selected Rows( 1 ), selected columns( 0 ) );
+
+col0 = b6 << get column names( numeric );
+numc0 = N Items( col0 );
+xxx0 = {};
+For( i = 1, i <= numc0, i++,
+If( col0[i]!="IB" ,
+Insert Into( xxx0, col0[i] )
+));
+
+b7= b6<< Summary(
+	Sum( eval(xxx0)),
+	Freq( "None" ),
+	Weight( "None" ),	
+	statistics column name format( "column" ))
+;
+
+b7<< delete column(column("N Rows"));
+b7<< delete column(column("IB"));
+b7<< delete column(column("Delta"));
+
+For( i = 1, i <= N Cols( b7), i++,
+    Column( i ) << set name( "Yield "||(Column( i ) << get name )));
+	
+	if(report==1, 
+savepath=outputdir||"/yield_summary.csv";
+b7 << save( savepath );
+	
+	
+),
+	if(report==1, 
+savepath=outputdir||"/yield_summary.csv";
+b7=New Table();
+b7 << save( savepath );
+
+));
+if(report==1, 
+savepath=outputdir||"/ibin_pareto.csv";
+b4 << save( savepath );
+	
+	
+);
+close(b1,nosave);
+close(b2,nosave);
+close(b3,nosave);
+	
+);
+
+
+
+////////////INSTANCE TEST TIME
+
+
+
+show("INSTANCE TEST TIME");
+
+InstanceTestTime = Function({type="G",report=0},
+
+
+ReadGui();
+
+	
+outputTablePerFab={};
+
+
+
+
+For( i = 1, i <= Nitems(listfabs), i++,			
+				outputTablePerFab[i] = GetTableUsingUber(listfabs[i]||"_PROD_XEUS",
+					
+			"	
+			select t3.lot,t3."||char(rb<<get selected)||",t4.ts_id,t4.dt_id,t4.lao_start_ww from 
+			(select t1."||char(rb<<get selected)||", t2.lot, t2.wafer_id, t2.ts_id, t2.lao_start_ww from
+
+
+			(select ts."||char(rb<<get selected)||", max(ts.ts_id) as id
+			from   a_testing_session ts
+			where ts.devrevstep in  ("||ProdList||")
+			and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 	
+			"||latestsortSQL||"
+			"||lotSQL||"
+			"||tpSQL||"
+			"||flowsql||"
+			and ts.operation like '"||u_operation||"'
+			and ts.devrevstep in  ("||ProdList||")
+			group  by ts."||char(rb<<get selected)||") as t1
+
+
+			inner join
+
+
+			(select ts.lot,ts.lao_start_ww,ts.ts_id, ts.wafer_id from
+			a_testing_session ts
+			where 1=1
+			"||latestsortSQL||"
+			"||lotSQL||"
+			"||tpSQL||"
+			"||flowsql||"
+			and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 
+			and ts.operation like '"||u_operation||"'
+			and ts.devrevstep in  ("||ProdList||")
+				
+			) as t2
+
+			on (t1.id=t2.ts_id)) as t3
+			inner join 
+			(
+				
+				select dt.ts_id,dt.dt_id, dt.lao_start_ww
+				from
+				a_device_testing dt
+						where 1=1
+						and dt.interface_bin!=93	
+					and dt.goodbad_flag='"||type||"'
+				order by dt.dt_id
+			) as t4
+			on (t4.ts_id=t3.ts_id and t4.lao_start_ww=t3.lao_start_ww)
+			--fetch first 10 rows only
+
+
+					 
+
+						
+						",
+					60000
+				);
+	
+	);
+    
+         try(
+	Final_Table=outputTablePerFab[1];
+
+For( i = 2, i <= Nitems(outputTablePerFab), i++,
+	Final_Table << concatenate(outputTablePerFab[i], append to first table(1));
+	//try(close(outputTablePerFab[i], nosave));
+));
+
+show("checkpoint1");
+x=Final_Table<< Subset(
+By(Column(rb<<get selected) ),
+	
+);
+
+show("checkpoint2");
+sql_all_samples="and ";
+show(sql_all_samples);
+show(length(x));
+sql_dtid_list="";
+sql_tsid_list="";
+for(j=1,j<=length(x),j++,
+		show(j);
+			
+			Current Data Table(x[j]);
+			
+			
+			dtids = column("DT_ID") << GetAsMatrix();
+		show(dtids);
+col = Column( Current Data Table(), "TS_ID");
+		sql_all_samples="";
+		numdie=Num(samplebox <<get text);
+		show(numdie);
+		for(i=1,i<numdie,i++,
+					show(i);
+					try(
+						sql_dtid_list=sql_dtid_list||char(dtids[i])||","))
+						;
+		sql_tsid_list=sql_tsid_list||char(col[1])||",";
+
+		//
+
+		show(j);
+		show(sql_all_samples);
+);
+
+
+
+sql_dtid_list=substr(sql_dtid_list, 1, length(sql_dtid_list)-1);
+sql_tsid_list=substr(sql_tsid_list, 1, length(sql_tsid_list)-1);
+testtimeSQL=	
+"	select ts.devrevstep,
+	ts.lot
+	,ts.testing_session_sequence as sseq
+	,ts.wafer_id
+	,dt.sort_x as x
+	,dt.sort_y as y
+	 ,dt.goodbad_flag
+	 	 	 ,dt.cell_id
+	 ,dt.THERMAL_HEAD_ID
+	 ,dt.SORT_PARTIALWAFER_ID
+,dt.SITE_ID
+	 ,ts.program_name
+	,dt.interface_bin as ib
+	,dt.functional_bin as fb
+	,dt.test_time
+	 ,dt.within_session_latest_flag
+	,t.test_name as testn
+	,rtd.string_alternative as result
+		from
+		
+				 a_testing_session ts inner join a_device_testing dt on 	
+		 (
+			ts.lao_start_ww = dt.lao_start_ww and
+		 	ts.ts_id = dt.ts_id	 	
+		 	and dt.lar_id=ts.lar_id
+		 	and dt.latest_flag=ts.latest_flag
+		 )
+		 
+		 inner join a_raw_test_data rtd on			
+		 (
+		 	ts.ts_id = rtd.ts_id and
+			dt.dt_id = rtd.dt_id and
+			ts.lao_start_ww = rtd.lao_start_ww		
+			and dt.BTR_SEQUENCE_IN_WW=rtd.BTR_SEQUENCE_IN_WW	
+			and rtd.lar_id=ts.lar_id
+			and rtd.latest_flag=ts.latest_flag
+		 )
+		 
+		 inner join a_test t on (
+			rtd.t_id = t.t_id and
+			t.program_name=ts.program_name and
+			t.devrevstep = ts.devrevstep
+			and ts.temperature=t.temperature
+		 )		
+			,
+		 
+		(SELECT  A_PG$INTEL_WW.CALCULATE_WW(SYSDATE) CURRENTWW	--current date
+         FROM A_SEQ_1_TO_9
+         WHERE SEQ=1)
+			
+			
+		where 1=1
+		"||latestsortSQL||"		
+		and (t.test_name  like 'TESTTIME%')
+		and ts.operation like '"||u_operation||"'
+				"||lotSQL||"
+		"||tpSQL||"
+"||flowsql||"
+and ts.ts_id in ("||sql_tsid_list||")
+and dt.dt_id in ("||sql_dtid_list||") 
+		and dt.interface_bin!=93	
+	--	AND (dt.interface_bin=99 or dt.interface_bin=98 or dt.functional_bin=899)
+	--	and dt.within_session_latest_flag = 'Y'
+	--	and ts.latest_flag = 'Y' 
+		and ts.devrevstep in  ("||ProdList||")
+		and dt.goodbad_flag='"||type||"'
+		and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 
+		and dt.test_time>0
+		--fetch first 10 rows only
+
+	";
+	show(testtimeSQL);
+show(sql_all_samples);
+outputTablePerFab={};
+
+For( i = 1, i <= Nitems(listfabs), i++,		
+show(i);	
+	outputTablePerFab[i] = GetTableUsingUber(listfabs[i]||"_PROD_XEUS",
+					
+			testtimeSQL,60000	
+		
+	));
+	Final_Table=outputTablePerFab[1];
+
+
+For( i = 2, i <= Nitems(outputTablePerFab), i++,
+	Final_Table << concatenate(outputTablePerFab[i], append to first table(1));
+	try(close(outputTablePerFab[i], nosave));
+);
+		
+	Final_Table << New Column( "TestTime", formula( Num( Regex( :RESULT, "PRE_(\S+)MAIN_(\S+)MS.+", "\2" ) )
++Num( Regex( :RESULT, "PRE_(\S+)MS.+MAIN_(\S+)MS.+", "\1" ) )); );
+	 itt1=	outputTablePerFab[1] << Split(
+	Split By( :TESTN ),
+	Split( :TestTime ),
+	Group( :LOT, :SSEQ, :WAFER_ID, :X, :Y, :IB,:test_time, Column(rb<<get selected)),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+col = itt1 << get column names( string );
+numc = N Items( col );
+xxx = {};
+For( i = 1, i <= numc, i++,
+If( Contains( col[i], "TESTTIME" ),
+Insert Into( xxx, col[i] )
+)
+);
+
+itt1 << Set Name("Raw Instance Test Time");
+		For( i = 1, i <= N Items( xxx ), i++,
+			Column( xxx[i] )[itt1 << get rows where( Is Missing( As Column( xxx[i] ) ) )] = 0);
+			itt1a=itt1<<Data Table( "Raw Instance Test Time" ) << Summary(
+	Group( :PROGRAM_NAME ),
+	Mean(
+		Eval(xxx)
+	),
+	Freq( "None" ),
+	Weight( "None" ),
+	statistics column name format( "column" )
+);
+			itt2=itt1a <<  Transpose(	columns( Eval(xxx)),	Label( Column(rb<<get selected) ));
+			
+			 itt2<<New Column( "Module", formula(		Word( 1, :Label, "::" )));
+			 
+itt2 << Set Name("Instance Test Time Summary");
+			if(n cols(itt2)>2,
+			
+			// itt2<<New Column( "TT Delta", formula(	Column(3)[]-Column(2)[]	));
+			 
+			 colt = itt2 << get column names(numeric );
+numct = N Items( colt );
+xxxt = {};
+For( i = 1, i <= numct, i++,
+Insert Into( xxxt, colt[i] )
+
+);
+
+
+			 	itt3=itt2 << Summary(
+	Group( :Module ),
+	Sum(  Eval(xxxt)),
+	Freq( "None" ),
+	Weight( "None" )
+);
+itt3 << Set Name("Module Test Time Summary");
+	
+	
+	
+);
+
+if(report==1, 
+savepath=outputdir||"/moduletesttime.csv";
+itt3 << save( savepath );
+savepath=outputdir||"/instancetesttime.csv";
+itt2 << save( savepath ))
+);
+
+
+	
+	
+	
+
+	
+	
+	
+////////////FUNCTIONAL FAILS
+
+	
+functional_fn = Function({report=0},
+
+ReadGui();
+PullDieData();
+
+
+
+	Final_Table << Select Where(:IB!=1)   << Delete Rows;
+outputTablePerFab={};
+For( i = 1, i <= Nitems(listfabs), i++,			
+	outputTablePerFab[i] = GetTableUsingUber(listfabs[i]||"_PROD_XEUS",
+		
+"	select 
+	  ts.lot
+	 ,TS.TESTING_SESSION_SEQUENCE as sseq
+	 ,ts.wafer_id
+	 ,dt.sort_x as X
+	 ,dt.sort_y as Y
+	 ,t.program_name
+	 ,dt.interface_bin as IB
+	 ,dt.functional_bin as FB
+	 ,t.test_name as testn
+	 ,pn.PATTERN_NAME	
+	 ,pnf.CYCLE_COUNT
+	 ,pnf.CHANNEL_NUMBER_1
+	 ,pnf.CHANNEL_NUMBER_2
+
+		from
+		
+		 a_testing_session ts inner join a_device_testing dt on 	
+		 (
+			ts.lao_start_ww = dt.lao_start_ww and
+		 	ts.ts_id = dt.ts_id	 	
+		 )
+		 
+		 inner join a_pattern_failure pnf on			
+		 (
+		 	ts.ts_id = pnf.ts_id and
+			dt.dt_id = pnf.dt_id and
+			ts.lao_start_ww = pnf.lao_start_ww
+		 )		 
+		 
+		 inner join a_pattern_name pn on			
+		 (	
+			pn.pattern_name_id=pnf.PATTERN_NAME_ID 
+		 )
+		 
+		 inner join a_test t on 		 
+		 (		 
+			pnf.t_id = t.t_id and
+			t.program_name=ts.program_name and	
+			t.devrevstep = ts.devrevstep			
+			and ts.temperature=t.temperature
+		 )			
+			
+		WHERE 1=1
+		"||latestsortSQL||"		
+		and ts.operation like '"||u_operation||"'
+				"||lotSQL||"
+		"||tpSQL||"
+"||flowsql||"
+		--and dt.interface_bin=1
+		and ts.devrevstep in  ("||ProdList||")
+		and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 
+		and dt.test_time>0
+		and (t.test_name like '"||char(funcbox<<get text())||"') 	 
+	",
+		60000
+	);
+		
+	);
+	Final_Table2=outputTablePerFab[1];
+
+
+For( i = 2, i <= Nitems(outputTablePerFab), i++,
+	Final_Table2 << concatenate(outputTablePerFab[i], append to first table(1));
+	try(close(outputTablePerFab[i], nosave));
+);
+
+	Final_Table2 << Select Where(:IB!=1)   << Delete Rows;
+	try(
+	
+	ft0= Final_Table2<<Summary(
+	Group( :LOT, :SSEQ, :WAFER_ID, :X, :Y, Column(rb<<get selected), :TESTN ),
+	Freq( "None" ),
+	Weight( "None" )
+);
+	ft1=ft0<< Summary(
+	Group( Column(rb<<get selected), :TESTN ),
+	Freq( "None" ),
+	Weight( "None" )
+);	
+:N Rows << set name("Num Fails");
+ft2=Final_Table<< Summary(
+	Group( Column(rb<<get selected) ),
+	Freq( "None" ),
+	Weight( "None" )
+);
+
+:N Rows << set name("Total Good Die");
+
+ft1 <<
+Update(
+	With(ft2 ),
+	Match Columns(  Column(rb<<get selected) =  Column(rb<<get selected) ),
+	Add Columns from Update table( :Total Good Die ),
+	Ignore missing
+);
+
+
+ft1<< New Column( "Percent Pass", formula( 100 * (1 - :Num Fails / :Total Good Die)));
+ft2=ft1<< Split(
+	Split By(Column(rb<<get selected) ),
+	Split( :Percent Pass ),
+	Group( :TESTN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+if(report==1, 
+savepath=outputdir||"/FuncFailSummary.csv";
+	ft2<< save(savepath);
+	
+	
+	))
+);
+	
+	
+	
+	
+	
+	
+	
+	
+////////////ULTRABINNER
+
+	
+ultrabinner_fn = Function({report=0},
+
+ReadGui();
+outputTablePerFab={};
+For( i = 1, i <= Nitems(listfabs), i++,			
+	outputTablePerFab[i] = GetTableUsingUber(listfabs[i]||"_PROD_XEUS",
+		
+"	select ts.devrevstep,
+	ts.lot
+	,ts.testing_session_sequence as sseq
+	,ts.wafer_id
+	,dt.sort_x as x
+	,dt.sort_y as y
+	 ,dt.goodbad_flag
+	 	 	 ,dt.cell_id
+	 ,dt.THERMAL_HEAD_ID
+	 ,dt.SORT_PARTIALWAFER_ID
+,dt.SITE_ID
+	 ,ts.program_name
+	,dt.interface_bin as ib
+	,dt.functional_bin as fb
+	 ,dt.within_session_latest_flag
+	,t.test_name as testn
+	,rtd.string_alternative as raw_result
+		from
+		
+				 a_testing_session ts inner join a_device_testing dt on 	
+		 (
+			ts.lao_start_ww = dt.lao_start_ww and
+		 	ts.ts_id = dt.ts_id	 	
+		 	and dt.lar_id=ts.lar_id
+		 	and dt.latest_flag=ts.latest_flag
+		 )
+		 
+		 inner join a_raw_test_data rtd on			
+		 (
+		 	ts.ts_id = rtd.ts_id and
+			dt.dt_id = rtd.dt_id and
+			ts.lao_start_ww = rtd.lao_start_ww		
+			and dt.BTR_SEQUENCE_IN_WW=rtd.BTR_SEQUENCE_IN_WW	
+			and rtd.lar_id=ts.lar_id
+			and rtd.latest_flag=ts.latest_flag
+		 )
+		 
+		 inner join a_test t on (
+			rtd.t_id = t.t_id and
+			t.program_name=ts.program_name and
+			t.devrevstep = ts.devrevstep
+			and ts.temperature=t.temperature
+		 )		
+			,
+		 
+		(SELECT  A_PG$INTEL_WW.CALCULATE_WW(SYSDATE) CURRENTWW	--current date
+         FROM A_SEQ_1_TO_9
+         WHERE SEQ=1)
+			
+			
+		where 1=1
+		"||latestsortSQL||"		
+		and (t.test_name ='ULTRABINNER_FAILINGINFO')
+		and t.test_name not like '%ASSERT%'
+		and ts.operation like '"||u_operation||"'
+				"||lotSQL||"
+		"||tpSQL||"
+"||flowsql||"
+		and dt.interface_bin!=93	
+	--	AND (dt.interface_bin=99 or dt.interface_bin=98 or dt.functional_bin=899)
+	--	and dt.within_session_latest_flag = 'Y'
+	--	and ts.latest_flag = 'Y' 
+		and ts.devrevstep in  ("||ProdList||")
+		and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 
+		and dt.test_time>0
+		--fetch first 10 rows only
+
+	",
+		60000
+	);
+		
+	);
+	Final_Table=outputTablePerFab[1];
+
+
+For( i = 2, i <= Nitems(outputTablePerFab), i++,
+	Final_Table << concatenate(outputTablePerFab[i], append to first table(1));
+	try(close(outputTablePerFab[i], nosave));
+);
+
+	Final_Table << New Column( "FailingTest", formula( Word( 2, :RAW_RESULT, "|" ) ));
+	
+	UltraBinnerSummary = Final_Table << Summary(
+	Group( :FB, :FailingTest,Column(rb<<get selected)),
+	Freq( "None" ),
+	Weight( "None" )
+);
+ultra_final=	UltraBinnerSummary<<
+Split(
+	Split By(Column(rb<<get selected) ),
+	Split( :N rows),
+	Group( :FailingTest,:FB),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+
+if(report==1, 
+savepath=outputdir||"/UltraBinnerSummary.csv";
+	ultra_final<< save(savepath);
+	
+	
+	)
+
+
+	);
+	
+	
+	
+	
+	
+	
+////////////98s and 99s
+
+
+
+
+n9898 = Function({report=0},
+
+ReadGui();
+outputTablePerFab={};
+For( i = 1, i <= Nitems(listfabs), i++,			
+	outputTablePerFab[i] = GetTableUsingUber(listfabs[i]||"_PROD_XEUS",
+		
+"	select ts.devrevstep,
+	ts.lot
+	,ts.testing_session_sequence as sseq
+	,ts.wafer_id
+	,dt.sort_x as x
+	,dt.sort_y as y
+	 ,dt.goodbad_flag
+	 	 	 ,dt.cell_id
+	 ,dt.THERMAL_HEAD_ID
+	 ,dt.SORT_PARTIALWAFER_ID
+,dt.SITE_ID
+	 ,ts.program_name
+	,dt.interface_bin as ib
+	,dt.functional_bin as fb
+	 ,dt.within_session_latest_flag
+	,t.test_name as testn
+	,rtd.string_alternative as raw_result
+		from
+		
+		 a_testing_session ts inner join a_device_testing dt on 	
+		 (
+			ts.lao_start_ww = dt.lao_start_ww and
+		 	ts.ts_id = dt.ts_id	 	
+		 	and dt.latest_flag=ts.latest_flag
+		 )
+		 
+		 inner join a_raw_test_data rtd on			
+		 (
+		 	ts.ts_id = rtd.ts_id and
+			dt.dt_id = rtd.dt_id and
+			ts.lao_start_ww = rtd.lao_start_ww			
+			and rtd.latest_flag=ts.latest_flag
+		 )
+		 
+		 inner join a_test t on (
+			rtd.t_id = t.t_id and
+			t.program_name=ts.program_name and
+			t.devrevstep = ts.devrevstep
+			and t.temperature=ts.temperature
+		 )		,
+		 
+		(SELECT  A_PG$INTEL_WW.CALCULATE_WW(SYSDATE) CURRENTWW	--current date
+         FROM A_SEQ_1_TO_9
+         WHERE SEQ=1)
+			
+			
+		where 1=1
+		"||latestsortSQL||"		
+		and (t.test_name like 'HWALARM%' or  t.test_name like 'ANOMALOUS_TEST_CURRENT')
+		and t.test_name not like '%ASSERT%'
+		and ts.operation like '"||u_operation||"'
+				"||lotSQL||"
+		"||tpSQL||"
+"||flowsql||"
+		and dt.interface_bin!=93	
+	--	AND (dt.interface_bin=99 or dt.interface_bin=98 or dt.functional_bin=899)
+	--	and dt.within_session_latest_flag = 'Y'
+	--	and ts.latest_flag = 'Y' 
+		and ts.devrevstep in  ("||ProdList||")
+		and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 
+		and dt.test_time>0
+		--fetch first 10 rows only
+
+	",
+		60000
+	);
+		
+	);
+	Final_Table=outputTablePerFab[1];
+
+
+For( i = 2, i <= Nitems(outputTablePerFab), i++,
+	Final_Table << concatenate(outputTablePerFab[i], append to first table(1));
+	try(close(outputTablePerFab[i], nosave));
+);
+	
+	if(N rows(Final_Table) >0,
+Final_Table << Select Where( contains(TESTN,"HWALARM"));
+clampsonly=Final_Table << Subset( Output Table( "Clamps" ), Selected Rows( 1 ), selected columns( 0 ) );
+
+
+clampsonly<<New Column( "Test", formula(	Word( 1, :TESTN, "|" )));
+clampsonly<<New Column( "Pin", formula(	Word( 3, :TESTN, "|" )));
+
+clampsonlysummary=clampsonly << Summary(
+	Group( :Test,:Pin,Column(rb<<get selected) ),
+	Freq( "None" ),
+	Weight( "None" )
+);
+//clampsonlysummary<< Sort( By(:N rows), Order(Descending), Replace Table);
+scos=	clampsonlysummary<<
+Split(
+	Split By(Column(rb<<get selected) ),
+	Split( :N rows),
+	Group( :Test,:Pin),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+	if(report==1, 
+savepath=outputdir||"/98s99s.csv";
+	Final_Table << save( savepath );
+	
+	scos<< save( outputdir||"/clampssummary.csv");
+	
+	)));
+	
+	
+	
+	
+	
+/////////// SWITCHES
+
+show("SWITCHES");
+switches = Function({report=0},
+
+
+ReadGUI();
+PullDieData();
+
+		
+		sw1=outputTablePerFab[1]<< Split(
+	Split By( Column(rb<<get selected) ),
+	Split( :FB ),
+	Group( :WAFER_ID, :X, :Y ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+show("Have switches");
+
+    sw1 << set name( "Switches");
+show(N rows(sw1));
+	numcols=ncols(sw1);
+	sw1 << Select Where(Is missing(Column(numcols)[]) | Is missing(Column(numcols-1)[])  ) << Delete Rows;
+	
+	if(N rows(sw1) >0,
+	sw2= sw1<< Summary(
+	Group( Column(numcols), Column(numcols-1) ),
+	Freq( "None" ),
+	Weight( "None" )
+);
+
+    sw2 << set name( "Switch Summary");
+	sw2 << Select Where(Column(1)[] ==Column(2)[])   << Delete Rows;
+	
+
+
+    :N Rows << set name( "Num Switches");
+if(report==1, 
+savepath=outputdir||"/switch_summary.csv";
+sw2 << save( savepath );
+))
+	,
+savepath=outputdir||"/switch_summary.csv";
+sw1 << save( savepath )
+	
+);
+;
+
+
+
+
+/////////// GFA Binning
+
+show("GFA Binning");
+GFAbinning = Function({report=0},
+
+
+ReadGUI();
+PullDieData();
+
+	gfa1=Final_Table<< Summary(
+	Group( :IB, :X,:Y,Column(rb<<get selected) ),
+	Freq( "None" ),
+	Weight( "None" ),
+	Link to original data table( 0 )
+);
+
+	gfa2=Final_Table<< Summary(
+	Group(  :X,:Y,Column(rb<<get selected) ),
+	Freq( "None" ),
+	Weight( "None" ),
+	Link to original data table( 0 )
+);
+
+gfa3=gfa1 <<
+Join(
+	With( gfa2 ),
+	Select( :X, :Y, :IB, Column(rb<<get selected), :N Rows ),
+	SelectWith( :N Rows ),
+	By Matching Columns( :X = :X, :Y = :Y,Column(rb<<get selected) = Column(rb<<get selected) ),
+	Drop multiples( 0, 0 ),
+	Include Nonmatches( 0, 0 ),
+	Preserve main table order( 1 )
+);
+
+gfa3:IB << Data type( Numeric ) << Set Modeling Type( Ordinal );
+
+gfa3<< New Column( "Percent Fail", Numeric, Formula( Column(5)[]/ Column(6)[]));
+
+gfr=gfa3<<Graph Builder(
+	Show Control Panel( 0 ),
+	Variables(
+		X( :X ),
+		Y( :Y ),
+		Page( Column(rb<<get selected) ),
+		Wrap( :IB ),
+		Color( :Percent Fail )
+	),
+	Elements( Points( X, Y, Legend( 9 ) ) ),
+	SendToReport(
+		Dispatch(
+			{},
+			"400",
+			ScaleBox,
+			{Legend Model(
+				9,
+				Properties(
+					0,
+					{gradient(
+						{Color Theme( "Viridis" ),
+						Min Lightness( 0.2521 )}
+					)},
+					Item ID( "Percent Fail", 1 )
+				)
+			)}
+		)
+	)
+);
+
+if(report==1, 
+savepath=outputdir||"/gfa_binning.jmp";
+gfa3 << save( savepath );
+gfr<< Save Picture( outputdir||"/gfabinning.jpg", JPEG );
+
+distScript =gfr << Get Script;
+Save Text File(
+  outputdir||"/gfabinning.jrp",
+  "//!
+    Open( \!"gfa_binning.jmp\!" );"
+    ||
+  Char( Name Expr( distScript ) )
+);
+
+));
+
+
+
+
+
+/////////// Hardware Binning
+
+show("Hardware Binning");
+hardwarebinning = Function({report=0},
+
+
+ReadGUI();
+PullDieData();
+
+	hwb1=Final_Table<< Summary(
+	Group( :IB, :CELL_ID, :THERMAL_HEAD_ID, :SORT_PARTIALWAFER_ID, :SITE_ID, TESTER_ID,Column(rb<<get selected) ),
+	Freq( "None" ),
+	Weight( "None" ),
+	Link to original data table( 0 )
+);
+
+hwbx1=hwb1<< Summary(
+	Group(
+		:CELL_ID,
+		:THERMAL_HEAD_ID,
+		:SORT_PARTIALWAFER_ID,
+		:SITE_ID,
+		:TESTER_ID,
+		Column(rb<<get selected)
+	),
+	Sum( :N Rows ),
+	Freq( "None" ),
+	Weight( "None" )
+);
+
+
+hwb2=hwb1<< Split(
+	Split By( :IB ),
+	Split( :N Rows ),
+	Group( :CELL_ID, :THERMAL_HEAD_ID, :SORT_PARTIALWAFER_ID, :SITE_ID, TESTER_ID,Column(rb<<get selected) ),
+	Sort by Column Property
+);
+
+		nc = hwb2 << get column names( Numeric );
+		For( i = 1, i <= N Items( nc ), i++,
+			Column( nc[i] )[hwb2 << get rows where( Is Missing( As Column( nc[i] ) ) )] = 0
+		);
+		
+		hwb2x5=hwb2<< Transpose(columns( Eval(nc)
+	),
+	By(
+		:CELL_ID,
+		:THERMAL_HEAD_ID,
+		:SORT_PARTIALWAFER_ID,
+		:SITE_ID,
+		:TESTER_ID,
+		Column(rb<<get selected)
+	),
+	Output Table( "Transpose of Untitled 122" )
+);
+
+
+
+
+
+
+
+
+
+hwbx2=hwb2x5<< Join(
+	With(
+		hwbx1 
+		
+	),
+	Select( :Row 1 ),
+	SelectWith(
+		:CELL_ID,
+		:THERMAL_HEAD_ID,
+		:SORT_PARTIALWAFER_ID,
+		:SITE_ID,
+		:TESTER_ID,
+		Column(rb<<get selected),
+		:Name( "Sum(N Rows)" )
+	),
+	Select( :Label ),
+	By Matching Columns(
+		:CELL_ID = :CELL_ID,
+		:THERMAL_HEAD_ID = :THERMAL_HEAD_ID,
+		:SORT_PARTIALWAFER_ID = :SORT_PARTIALWAFER_ID,
+		:SITE_ID = :SITE_ID,
+		:TESTER_ID = :TESTER_ID,
+		Column(rb<<get selected) = Column(rb<<get selected)
+	),
+	Drop multiples( 0, 0 ),
+	Include Nonmatches( 1, 1 ),
+	Preserve main table order( 1 )
+);
+
+hwbx2<< New Column( "Total Tested", Numeric, Formula(	:Name( "Sum(N Rows)" ) - :Row 1));
+
+
+
+gb=hwbx2<<Graph Builder(
+	Show Control Panel( 0 ),
+	Variables(
+		X( :TESTER_ID ),
+		X( :CELL_ID, Position( 1 ) ),
+		X( :THERMAL_HEAD_ID, Position( 1 ) ),
+		Y( :Row 1 ),
+		Y( :Total Tested, Position( 1 ) ),
+			Page( Column(rb<<get selected) ),
+		Wrap( :Label )
+	),
+	Elements(
+		Bar(
+			X( 3 ),
+			X( 2 ),
+			X( 1 ),
+			Y( 1 ),
+			Y( 2 ),
+			Legend( 3 ),
+			Bar Style( "Stacked" )
+		)
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"TESTER_ID",
+			ScaleBox( 2 ),
+			{Label Row( 1, {Lower Frame( 1 ), Tick Mark Style( "Long Divider" )} ),
+			Label Row(
+				2,
+				{Lower Frame( 1 ), Show Major Grid( 1 ),
+				Tick Mark Style( "Long Divider" )}
+			), Label Row(
+				3,
+				{Lower Frame( 1 ), Major Grid Line Color( 0 ), Show Major Grid( 1 ),
+				Tick Mark Style( "Long Divider" )}
+			)}
+		),
+		Dispatch(
+			{},
+			"400",
+			ScaleBox,
+			{Legend Model(
+				3,
+				Properties( 0, {Fill Color( 19 )}, Item ID( "Mean(Row 1)", 1 ) ),
+				Properties(
+					1,
+					{Fill Color( 32 )},
+					Item ID( "Mean(Total Tested)", 1 )
+				)
+			)}
+		)
+	)
+);
+
+
+
+hwb1:IB << Data type( Numeric ) << Set Modeling Type( Ordinal );
+
+gb=hwb1<<Graph Builder(
+	Size( 1244, 1064 ),
+	Show Control Panel( 0 ),
+	Variables(
+		X( :TESTER_ID, Position( 1 ) ),
+		X( :SITE_ID, Position( 1 ) ),
+		X( :THERMAL_HEAD_ID, Position( 1 ) ),
+		Y( :N Rows ),		
+		Group Y( Column(rb<<get selected) ),
+		Overlay( :IB )
+	),
+	Elements(
+		Bar( X( 3 ), X( 2 ), X( 1 ), Y, Legend( 7 ), Bar Style( "Stacked" ) )
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"TESTER_ID",
+			ScaleBox,
+			{Label Row( 1, {Lower Frame( 1 ), Tick Mark Style( "Long Divider" )} ),
+			Label Row(
+				2,
+				{Lower Frame( 1 ), Show Major Grid( 1 ),
+				Tick Mark Style( "Long Divider" )}
+			), Label Row( 3, {Lower Frame( 1 ), Tick Mark Style( "Long Divider" )} )
+			}
+		)
+	)
+);
+		
+
+		
+if(report==1, 
+savepath=outputdir||"/hardware_binning.jmp";
+hwb1 << save( savepath );
+gb<< Save Picture( outputdir||"/hardwarebinning.jpg", JPEG );
+
+distScript =gb << Get Script;
+Save Text File(
+  outputdir||"/hardwarebinning.jrp",
+  "//!
+    Open( \!"hardware_binning.jmp\!" );"
+    ||
+  Char( Name Expr( distScript ) )
+);
+
+));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//Read GUI
+ReadGui=Function({},
+
+	
+lot_list=lotbox<<get text; 
+
+
+flowsql="";
+ if(flowbox<<get()==1,
+ flowsql=" and ts.temperature<0 ",
+ flowsql=" and ts.temperature>0 " );
+ 
+
+ show(lot_list);
+
+ if(LatestSort<<get()==1,
+ 	
+ 	latestsortSQL="and ts.latest_flag = 'Y'", latestsortSQL=" and (ts.latest_flag = 'Y' or ts.latest_flag = 'N' )"
+ );
+ listfabs=cb << Get Selected();
+ show(listfabs);
+u_operation=operationbox<<get text; 
+
+
+LotList="";
+inputlines = Words( lot_list, "\!n\!r" );
+For( i = 1, i <= N Items( inputlines ), i++,
+	lots=words(inputlines[i]);
+	LotList=LotList||"'"||lots[1]||"',";
+	
+);
+LotList=substr(LotList, 1, length(LotList)-1);
+
+if( N Items( inputlines )>0,
+	
+	lotSQL="and ts.lot IN ("||LotList||")",
+	lotSQL="");
+	
+tp_list=tpbox<<get text; 
+	
+TPList="";
+inputlines = Words( tp_list, "\!n\!r" );
+For( i = 1, i <= N Items( inputlines ), i++,
+	tps=words(inputlines[i]);
+	TPList=TPList||"'"||tps[1]||"',";
+	
+);
+TPList=substr(TPList, 1, length(TPList)-1);
+
+if( N Items( inputlines )>0,
+	
+	tpSQL="and ts.program_name IN ("||TPList||")",
+	tpSQL="");
+	
+
+
+ProdList="";
+inputlines = Words( productbox<<get text(), "\!n\!r" );
+For( i = 1, i <= N Items( inputlines ), i++,
+	products=words(inputlines[i]);
+	ProdList=ProdList||"'"||products[1]||"',";
+	
+);
+ProdList=substr(ProdList, 1, length(ProdList)-1);
+	
+	
+	
+);	
+	
+	
+	
+	
+	
+//Read GUI
+PullDieData=Function({},
+	outputTablePerFab={};
+For( i = 1, i <= Nitems(listfabs), i++,				
+	outputTablePerFab[i] = GetTableUsingUber(listfabs[i]||"_PROD_XEUS",
+
+	 "select 
+	  ts.lot
+	 ,TS.TESTING_SESSION_SEQUENCE as sseq
+	 ,ts.wafer_id
+	 ,dt.sort_x as X
+	 ,dt.sort_y as Y
+	 ,dt.goodbad_flag
+	 ,dt.interface_bin as IB
+	 ,ts.devrevstep
+	 ,ts.TESTER_ID
+	 ,dt.functional_bin as FB
+	  ,ts.program_name
+	  ,ts.operation
+	 ,dt.test_time
+	,ts.test_end_date_time
+	,ts.TEMPERATURE
+	 ,ts.DEVICE_ITEMS_TESTED
+	 	 ,dt.cell_id
+	 ,dt.THERMAL_HEAD_ID
+	 ,dt.SORT_PARTIALWAFER_ID
+,dt.SITE_ID
+	 --,dt.visual_id
+
+		from
+		
+		 a_testing_session ts inner join a_device_testing dt on 	
+		 (
+			ts.lao_start_ww = dt.lao_start_ww and
+		 	ts.ts_id = dt.ts_id	 	
+		 ),
+		 
+		(SELECT  A_PG$INTEL_WW.CALCULATE_WW(SYSDATE) CURRENTWW	--current date
+         FROM A_SEQ_1_TO_9
+         WHERE SEQ=1)
+
+		WHERE 1=1
+		"||latestsortSQL||"
+		and dt.within_session_latest_flag='Y'
+		and ts.operation like '"||u_operation||"'		
+		"||lotSQL||"	
+		"||tpSQL||"
+"||flowsql||"
+		and dt.interface_bin!=93	
+	--	and ts.DEVREVSTEP='88RACVCB'
+	--	and dt.lao_start_ww >202230
+	--	and ts.operation='6051'
+	--	and dt.functional_bin!=100
+			and ts.TEST_END_DATE_TIME >= trunc(SYSDATE -"||char(prefetchbox<<get text())||") 	
+		and ts.devrevstep in  ("||ProdList||")
+			
+			
+	",  60000);
+	//
+
+	);
+		
+	Final_Table=outputTablePerFab[1];
+
+For( i = 2, i <= Nitems(outputTablePerFab), i++,
+	Final_Table << concatenate(outputTablePerFab[i], append to first table(1));
+	try(close(outputTablePerFab[i], nosave));
+);
+// Rename the table to the desired name
+	//For( i = 1, i <= Nitems(outputTablePerFab), i++,				
+	//)
+		
+		
+	);
+	
+	//BIG REPORT
+
+bigreport = Function({},
+
+reportname=reportnamebox<<get text();
+reportname = substitute(reportname, "\!n\!r", "");
+reportname=substr(reportname,1,length(reportname)-1);
+	outputdir=	outputFolder||substitute(Format( Today(), "ddMonyyyy" ),"/","_")||"\"||reportname||"\files";
+	show(outputdir);
+	Create Directory(outputdir);
+	
+	show("created output dir");
+	try(
+	Binning1(1);
+	IBinning1(1);
+	OverallTestTime(1);
+	prefetch(1);
+	switches(1);
+	n9898(1);
+	hardwarebinning(1);
+	gfabinning(1);
+	InstanceTestTime("G",1);
+	ultrabinner_fn(1);
+	functional_fn(1);
+	
+	//filepath=substr((outputdir||"SortMVReport.xlsm"),2);
+	//show(filepath);
+	rp = RunProgram( Executable( "WSCRIPT.EXE" ), Options( substr(defaultdir,2)||"makereport.vbs \!"\!"\!""||outputdir||"\!"\!"\!"" ), Read Function( "text" ) ));
+
+	
+);
+
+
+bigreport();
+Exit("No Save");
